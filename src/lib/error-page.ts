@@ -1,4 +1,16 @@
-export function renderErrorPage(): string {
+export function renderErrorPage(error?: unknown): string {
+  let errorDetail = "";
+  if (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : "";
+    errorDetail = `
+      <div style="margin-top: 1.5rem; text-align: left; background: #f3f4f6; padding: 1rem; border-radius: 0.375rem; border: 1px solid #e5e7eb; overflow-x: auto; max-height: 15rem;">
+        <strong style="color: #dc2626; font-size: 0.875rem;">Error details:</strong>
+        <pre style="margin: 0.5rem 0 0; font-family: monospace; font-size: 0.75rem; white-space: pre-wrap; word-break: break-all; color: #374151;">${message}${stack ? '\n\n' + stack : ''}</pre>
+      </div>
+    `;
+  }
+
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -20,7 +32,8 @@ export function renderErrorPage(): string {
     <div class="card">
       <h1>This page didn't load</h1>
       <p>Something went wrong on our end. You can try refreshing or head back home.</p>
-      <div class="actions">
+      ${errorDetail}
+      <div class="actions" style="margin-top: 1.5rem;">
         <button class="primary" onclick="location.reload()">Try again</button>
         <a class="secondary" href="/">Go home</a>
       </div>
