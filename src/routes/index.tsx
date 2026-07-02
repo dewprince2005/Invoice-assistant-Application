@@ -11,16 +11,30 @@ export const Route = createFileRoute("/")({
 function IndexRedirect() {
   const router = useRouter();
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        router.navigate({ to: "/auth", replace: true });
-        return;
+    // Listen for auth state changes first — this catches the SIGNED_IN event
+    // that fires when Supabase auto-processes the #access_token hash after Google OAuth.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        router.navigate({ to: "/vendor", replace: true });
+      } else {
+        // Only redirect to /auth if there's definitely no session
+        supabase.auth.getUser().then(({ data }) => {
+          if (!data.user) router.navigate({ to: "/auth", replace: true });
+        });
       }
-      router.navigate({ to: "/vendor", replace: true });
-    })();
+    });
+
+    // Also do an immediate check in case auth state has already resolved
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) router.navigate({ to: "/vendor", replace: true });
+    });
+
+    return () => subscription.unsubscribe();
   }, [router]);
+
   return (
-    <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Loading…</div>
+    <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">
+      Loading…
+    </div>
   );
 }

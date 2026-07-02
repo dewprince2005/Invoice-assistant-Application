@@ -1,7 +1,7 @@
-// Server-only Lovable AI Gateway helper.
-// Used by server functions to call vision-capable models for invoice extraction.
+// Server-only AI helper.
+// Uses OpenAI gpt-4o (vision) for invoice data extraction.
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 export interface ExtractedInvoice {
   invoiceNumber: string;
@@ -37,50 +37,43 @@ export async function extractInvoiceFromFile(args: {
   base64: string;
   mimeType: string;
 }): Promise<ExtractedInvoice> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured in .env");
 
   const dataUrl = `data:${args.mimeType};base64,${args.base64}`;
   const userContent: any[] = [
     { type: "text", text: "Extract the invoice fields. Return only the JSON object." },
+    { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
   ];
 
-  if (args.mimeType.startsWith("image/")) {
-    userContent.push({ type: "image_url", image_url: { url: dataUrl } });
-  } else if (args.mimeType === "application/pdf") {
-    // OpenRouter/Gemini accept PDFs via image_url with a data URL too for vision-capable models.
-    userContent.push({ type: "image_url", image_url: { url: dataUrl } });
-  } else {
-    throw new Error(`Unsupported MIME type for extraction: ${args.mimeType}`);
-  }
-
-  const res = await fetch(GATEWAY_URL, {
+  const res = await fetch(OPENAI_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Lovable-API-Key": apiKey,
-      "X-Lovable-AIG-SDK": "custom",
+      "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userContent },
       ],
       response_format: { type: "json_object" },
+      max_tokens: 1500,
     }),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    if (res.status === 429) throw new Error("AI rate limit reached. Please try again in a minute.");
-    if (res.status === 402) throw new Error("AI credits exhausted. Please add credits in workspace settings.");
-    throw new Error(`AI gateway error ${res.status}: ${text.slice(0, 300)}`);
+    if (res.status === 429) throw new Error("OpenAI rate limit reached. Please try again in a minute.");
+    if (res.status === 401) throw new Error("Invalid OpenAI API key. Check OPENAI_API_KEY in your .env file.");
+    if (res.status === 402 || res.status === 403) throw new Error("OpenAI quota exhausted or billing issue. Check your OpenAI account.");
+    throw new Error(`OpenAI API error ${res.status}: ${text.slice(0, 300)}`);
   }
 
   const json = await res.json();
   const content: string = json?.choices?.[0]?.message?.content ?? "";
-  if (!content) throw new Error("AI returned an empty response");
+  if (!content) throw new Error("OpenAI returned an empty response");
 
   let parsed: any;
   try {

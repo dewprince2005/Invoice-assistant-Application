@@ -10,7 +10,8 @@ import { Upload, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/_authenticated/vendor/")({
+export const Route = createFileRoute("/_authenticated/vendor/")({  
+  ssr: false,
   head: () => ({
     meta: [{ title: "My invoices — Ledgerly" }],
   }),
