@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
+import { createFileRoute, useRouter, Link, Outlet } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,13 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
+  const router = useRouter();
+  const isCallback = router.state.location.pathname.startsWith("/auth/callback");
+
+  if (isCallback) {
+    return <Outlet />;
+  }
+
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background">
       <div className="hidden lg:flex flex-col justify-between bg-sidebar text-sidebar-foreground p-12">
